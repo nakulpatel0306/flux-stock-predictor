@@ -1,123 +1,65 @@
 # flux - AI Stock Prediction Platform
 
-An advanced stock prediction platform that uses real-time data from Yahoo Finance and ensemble machine learning models powered by TensorFlow.js to predict stock price movements.
+A browser-based stock predictor. It pulls real price history from Yahoo Finance, trains three models with TensorFlow.js right in the browser, and combines them into one ensemble forecast with charts and backtest metrics.
+
+## At a Glance
+
+- **Stack:** React 18, TypeScript, Vite, TensorFlow.js, Recharts, Tailwind CSS, shadcn/ui
+- **Data:** Yahoo Finance public API
+- **State:** Complete. For learning only, not financial advice.
 
 ## Features
 
-- **Real-Time Stock Data**: Fetches live 2025 stock prices and historical data from Yahoo Finance API
-- **Ensemble ML Models**: Combines neural network, time series, and regression models for accurate predictions
-- **Technical Analysis**: Advanced indicators including RSI, MACD, SMA (5, 20, 50 day), and volatility analysis
-- **Performance Metrics**: Comprehensive backtesting with Sharpe ratio, CAGR, max drawdown, and win rate
-- **Interactive Charts**: Beautiful price charts with buy/sell signals using Recharts
-- **Modern UI**: Built with React, TypeScript, Tailwind CSS, and shadcn/ui components
-
-## Tech Stack
-
-- **React 18** with TypeScript
-- **Vite** for fast development and building
-- **TensorFlow.js** for machine learning predictions
-- **Yahoo Finance API** for real stock data
-- **Recharts** for data visualization
-- **Tailwind CSS** for styling
-- **shadcn/ui** for UI components
-
-## Installation
-
-1. Install dependencies:
-```bash
-npm install
-# or
-bun install
-```
-
-2. Start the development server:
-```bash
-npm run dev
-# or
-bun dev
-```
-
-The app will be available at `http://localhost:8080`
-
-## Usage
-
-1. Enter a stock ticker symbol (e.g., AAPL, TSLA, GOOGL, MSFT, NVDA)
-2. Select a timeframe (1W, 1M, 3M, 6M, or 1Y)
-3. Click "Analyze Stock" to:
-   - Fetch real historical stock data from Yahoo Finance
-   - Train multiple ML models on the data
-   - Generate ensemble predictions and technical indicators
-   - Display performance metrics and interactive charts
+- Any ticker (AAPL, TSLA, NVDA and so on) over 1W, 1M, 3M, 6M or 1Y
+- Ensemble of a neural network, a time series model and a ridge regression
+- Technical indicators: SMA (5, 20, 50), EMA, RSI, MACD and volatility
+- Backtest metrics: Sharpe ratio, CAGR, max drawdown, win rate, accuracy, precision, recall
+- Interactive price chart with buy and sell signals
 
 ## How It Works
 
-1. **Data Fetching**: The app fetches real stock data from Yahoo Finance's public API endpoint
-2. **Feature Engineering**: Technical indicators (RSI, MACD, SMA, volatility) are calculated from price data
-3. **ML Training**: Multiple models (Neural Network, Time Series, Regression) are trained in parallel
-4. **Ensemble Prediction**: Models are combined with weighted averaging for higher accuracy
-5. **Performance Metrics**: Historical backtesting metrics are calculated from actual price movements
-6. **Visualization**: Results are displayed with interactive charts and detailed metrics
+1. Fetch price history for the chosen ticker and timeframe
+2. Calculate technical indicators as model features
+3. Train all three models in parallel, in the browser
+4. Blend their outputs with weighted averaging
+5. Backtest against actual price moves and chart the results
 
-## Machine Learning Models
+| Model | Approach | Ensemble weight |
+|---|---|---|
+| Neural network | Multi-layer perceptron with dropout, on 8 normalized indicators | 50% |
+| Time series | Sequence regression on sliding windows of prices | 30% |
+| Regression | Ridge (L2) regression, an interpretable baseline | 20% |
 
-The platform uses an **ensemble approach** combining three ML models:
-
-### 1. Neural Network Model
-- **Architecture**: Multi-layer perceptron with dropout regularization
-- **Features**: 8 normalized technical indicators (SMA deviations, RSI, MACD, volatility, momentum)
-- **Use Case**: Pattern recognition in technical indicators
-- **Weight in Ensemble**: 50%
-
-### 2. Time Series Model
-- **Architecture**: Sequence-based regression (LSTM-like approach)
-- **Input**: Sliding windows of normalized prices
-- **Use Case**: Capturing trend and seasonality patterns
-- **Weight in Ensemble**: 30%
-
-### 3. Regression Model
-- **Architecture**: Linear regression with L2 regularization (Ridge)
-- **Features**: 8 normalized technical indicators
-- **Use Case**: Simple, interpretable baseline predictions
-- **Weight in Ensemble**: 20%
-
-The ensemble model combines all three predictions using weighted averaging for improved accuracy and robustness.
+Full design details are in [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ## Project Structure
 
 ```
 src/
-├── components/       # React UI components
-├── features/         # Feature engineering (technical indicators)
-├── models/           # ML models (neural network, time series, regression, ensemble)
-├── services/         # Business logic (stock data, ML orchestration)
-├── types/            # TypeScript type definitions
-├── utils/            # Utility functions (performance metrics)
-└── pages/            # Page components
+├── components/   # UI components (input, charts, prediction panel, metrics)
+├── features/     # Technical indicator calculations
+├── models/       # Neural network, time series, regression and ensemble
+├── services/     # Stock data fetching and model orchestration
+├── utils/        # Performance metrics
+├── types/        # TypeScript types
+└── pages/        # Page components
 ```
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed architecture documentation.
+## Running Locally
 
-## Technical Indicators
-
-- **SMA**: Simple Moving Average (5, 20, 50 day periods)
-- **EMA**: Exponential Moving Average (12, 26 periods for MACD)
-- **RSI**: Relative Strength Index (14 period, 0-100 scale)
-- **MACD**: Moving Average Convergence Divergence (EMA12 - EMA26)
-- **Volatility**: Annualized standard deviation of returns
-
-## Performance Metrics
-
-- **Sharpe Ratio**: Risk-adjusted return (annualized)
-- **CAGR**: Compound Annual Growth Rate
-- **Max Drawdown**: Largest peak-to-trough decline
-- **Win Rate**: Percentage of positive returns
-- **Accuracy, Precision, Recall**: Model performance metrics
+1. Clone the repo and install dependencies:
+   ```bash
+   git clone https://github.com/nakulpatel0306/flux-stock-predictor.git
+   cd flux-stock-predictor
+   npm install
+   ```
+2. Start the dev server and open `http://localhost:8080`:
+   ```bash
+   npm run dev
+   ```
 
 ## Notes
 
-- Predictions are for educational purposes only and should not be used as financial advice
-- Models train on-demand, so the first analysis may take a few seconds
-- Historical data availability depends on Yahoo Finance API
-- For best results, use timeframes with at least 50+ data points (3M, 6M, or 1Y recommended)
-- The ensemble model provides the most accurate predictions by combining multiple approaches
-- All calculations follow standard financial formulas
+- Models train on demand, so the first analysis takes a few seconds
+- Use 3M, 6M or 1Y for best results, since the models need 50+ data points
+- Data availability depends on the Yahoo Finance API
