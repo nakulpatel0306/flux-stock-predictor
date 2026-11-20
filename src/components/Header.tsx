@@ -13,13 +13,8 @@ const Header = () => {
               <h1 className="text-2xl font-bold tracking-tight">
                 flux
               </h1>
-              <p className="text-sm text-muted-foreground">AI Stock Prediction</p>
+              <p className="text-sm text-muted-foreground">Next-day forecasts trained in your browser</p>
             </div>
-          </div>
-          
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <div className="w-2 h-2 bg-bullish rounded-full animate-pulse"></div>
-            Market Open
           </div>
         </div>
       </div>
