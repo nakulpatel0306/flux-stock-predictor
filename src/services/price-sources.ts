@@ -6,6 +6,7 @@
  */
 
 import type { HistoryPeriod, StockDataPoint } from '@/types';
+import { nasdaqSymbol, yahooSymbol } from './ticker';
 
 /** Thrown when a source answers but says the ticker doesn't exist */
 export class SymbolNotFoundError extends Error {}
@@ -15,7 +16,7 @@ export interface PriceSource {
   /** Upstream origin, mapped to `proxyPrefix` by the Vite proxy */
   origin: string;
   proxyPrefix: string;
-  /** Request paths to try in order; a not-found answer moves to the next one */
+  /** Request paths to try in order; a not-found answer moves to the next one. Empty if the source can't serve the symbol */
   paths(symbol: string, period: HistoryPeriod): string[];
   parse(body: unknown): StockDataPoint[];
 }
@@ -70,11 +71,13 @@ export const nasdaq: PriceSource = {
   origin: 'https://api.nasdaq.com',
   proxyPrefix: '/api/nasdaq',
   paths(symbol, period) {
+    const nasdaqTicker = nasdaqSymbol(symbol);
+    if (!nasdaqTicker) return [];
     const to = new Date();
     const from = new Date(to);
     from.setMonth(from.getMonth() - PERIOD_MONTHS[period]);
     const query = `fromdate=${isoDate(from)}&todate=${isoDate(to)}&limit=400`;
-    const ticker = encodeURIComponent(symbol);
+    const ticker = encodeURIComponent(nasdaqTicker);
     // ETFs live under a different asset class and 404 as stocks
     return ['stocks', 'etf'].map(
       (assetClass) => `/api/quote/${ticker}/historical?assetclass=${assetClass}&${query}`
@@ -115,7 +118,7 @@ export const yahoo: PriceSource = {
   origin: 'https://query1.finance.yahoo.com',
   proxyPrefix: '/api/yahoo',
   paths(symbol, period) {
-    return [`/v8/finance/chart/${encodeURIComponent(symbol)}?range=${period}&interval=1d`];
+    return [`/v8/finance/chart/${encodeURIComponent(yahooSymbol(symbol))}?range=${period}&interval=1d`];
   },
   parse(raw) {
     const body = raw as YahooResponse;

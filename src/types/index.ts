@@ -27,21 +27,32 @@ export interface TechnicalIndicators {
   volume: number[];
 }
 
+// Directional results of the trained models on the most recent days, which they never saw in training
+export interface HoldoutMetrics {
+  samples: number;
+  trainSamples: number;
+  accuracy: number;
+  // Null when the models never called "up" (precision) or the holdout had no up days (recall)
+  precision: number | null;
+  recall: number | null;
+  // Accuracy of always predicting "up" on the same days, the bar the models have to beat
+  baselineAccuracy: number;
+}
+
 // ML model prediction result
 export interface PredictionResult {
   direction: 'up' | 'down';
+  // Probability of the predicted direction, 50-100
   probability: number;
   expectedReturn: number;
   confidence: 'high' | 'medium' | 'low';
-  modelAccuracy: number;
   nextDayPrice: number;
+  method: 'ensemble' | 'rules';
+  holdout: HoldoutMetrics | null;
 }
 
-// Performance metrics from backtesting
+// Risk and return statistics for the fetched price history
 export interface PerformanceMetrics {
-  accuracy: number;
-  precision: number;
-  recall: number;
   sharpeRatio: number;
   cagr: number;
   maxDrawdown: number;

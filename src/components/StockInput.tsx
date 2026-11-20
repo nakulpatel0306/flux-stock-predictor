@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Search, TrendingUp } from "lucide-react";
+import { TICKER_HINT, normalizeTicker } from "@/services/ticker";
 
 interface StockInputProps {
   onAnalyze: (ticker: string, timeframe: string) => void;
@@ -13,13 +14,16 @@ interface StockInputProps {
 const StockInput = ({ onAnalyze, loading }: StockInputProps) => {
   const [ticker, setTicker] = useState("");
   const [timeframe, setTimeframe] = useState("1M");
+  const [invalid, setInvalid] = useState(false);
 
   const popularStocks = ["AAPL", "TSLA", "GOOGL", "MSFT", "NVDA", "AMZN"];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (ticker.trim()) {
-      onAnalyze(ticker.toUpperCase(), timeframe);
+    const symbol = normalizeTicker(ticker);
+    setInvalid(!symbol);
+    if (symbol) {
+      onAnalyze(symbol, timeframe);
     }
   };
 
@@ -40,9 +44,14 @@ const StockInput = ({ onAnalyze, loading }: StockInputProps) => {
                 type="text"
                 placeholder="Enter ticker (e.g., AAPL)"
                 value={ticker}
-                onChange={(e) => setTicker(e.target.value)}
+                onChange={(e) => {
+                  setTicker(e.target.value);
+                  setInvalid(false);
+                }}
                 className="text-center font-mono text-lg tracking-wide uppercase"
-                maxLength={5}
+                maxLength={12}
+                aria-invalid={invalid}
+                aria-describedby={invalid ? "ticker-error" : undefined}
               />
             </div>
             <Select value={timeframe} onValueChange={setTimeframe}>
@@ -57,6 +66,12 @@ const StockInput = ({ onAnalyze, loading }: StockInputProps) => {
               </SelectContent>
             </Select>
           </div>
+
+          {invalid && (
+            <p id="ticker-error" className="text-sm text-destructive text-center">
+              That doesn't look like a ticker. {TICKER_HINT}.
+            </p>
+          )}
 
           <Button 
             type="submit" 
@@ -85,7 +100,10 @@ const StockInput = ({ onAnalyze, loading }: StockInputProps) => {
                 key={stock}
                 variant="outline"
                 size="sm"
-                onClick={() => setTicker(stock)}
+                onClick={() => {
+                  setTicker(stock);
+                  setInvalid(false);
+                }}
                 className="font-mono text-xs hover:bg-primary/10 hover:border-primary/30 transition-colors"
               >
                 <TrendingUp className="w-3 h-3 mr-1" />

@@ -5,6 +5,7 @@
 
 import type { PredictionResult, TechnicalIndicators } from '@/types';
 import { makeMLPrediction } from '@/models';
+import { expectedReturnFromProbability } from '@/models/dataset';
 import { calculateTechnicalIndicators } from '@/features/technical-indicators';
 
 /**
@@ -39,25 +40,19 @@ function makeSimplePrediction(
   // Volatility: low volatility often means stability
   if (indicators.volatility < 0.03) bullishScore += 0.5;
   
-  // Convert bullish score to probability (clamped between 30-80%)
-  const probability = Math.min(Math.max((bullishScore / 4) * 100, 30), 80);
-  
-  // Calculate expected return based on probability and volatility
-  const expectedReturn = (probability - 50) / 10 * indicators.volatility * 100;
-  const nextDayPrice = currentPrice * (1 + expectedReturn / 100);
-  
-  // Determine confidence based on probability extremes
-  const confidence: 'high' | 'medium' | 'low' = 
-    probability > 70 || probability < 30 ? 'high' :
-    probability > 60 || probability < 40 ? 'medium' : 'low';
-  
+  // Convert bullish score to P(up) (clamped between 30-80%)
+  const upProbability = Math.min(Math.max(bullishScore / 4, 0.3), 0.8);
+  const expectedReturn = expectedReturnFromProbability(upProbability, prices);
+
   return {
-    direction: probability > 50 ? 'up' : 'down',
-    probability: Math.round(probability),
-    expectedReturn: parseFloat(expectedReturn.toFixed(2)),
-    confidence,
-    modelAccuracy: Math.round(70 + indicators.volatility * 300), // Estimate based on volatility
-    nextDayPrice: parseFloat(nextDayPrice.toFixed(2)),
+    direction: upProbability > 0.5 ? 'up' : 'down',
+    probability: Math.round(Math.max(upProbability, 1 - upProbability) * 100),
+    expectedReturn: parseFloat((expectedReturn * 100).toFixed(2)),
+    // A hand-written score with no trained model or holdout check behind it
+    confidence: 'low',
+    nextDayPrice: parseFloat((currentPrice * (1 + expectedReturn)).toFixed(2)),
+    method: 'rules',
+    holdout: null,
   };
 }
 
@@ -76,7 +71,7 @@ export async function predictStock(
   // Try ML prediction if we have enough data
   if (prices.length >= 50) {
     try {
-      return await makeMLPrediction(prices, volumes, currentPrice, indicators, true);
+      return await makeMLPrediction(prices, volumes, currentPrice);
     } catch (error) {
       console.warn('ML prediction failed, using technical analysis fallback:', error);
       // Fall through to simple prediction

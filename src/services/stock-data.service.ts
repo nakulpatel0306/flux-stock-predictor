@@ -6,6 +6,7 @@
 
 import type { HistoryPeriod, StockDataPoint } from '@/types';
 import { PRICE_SOURCES, SymbolNotFoundError, type PriceSource } from './price-sources';
+import { TICKER_HINT, normalizeTicker } from './ticker';
 
 const REQUEST_TIMEOUT_MS = 8000;
 
@@ -101,7 +102,10 @@ export async function fetchStockHistory(
   symbol: string,
   period: HistoryPeriod
 ): Promise<StockDataPoint[]> {
-  const ticker = symbol.trim().toUpperCase();
+  const ticker = normalizeTicker(symbol);
+  if (!ticker) {
+    throw new SymbolNotFoundError(`"${symbol.trim()}" isn't a ticker symbol. ${TICKER_HINT}.`);
+  }
   const failures: string[] = [];
   const rejectedBy: string[] = [];
   const unreachable: string[] = [];

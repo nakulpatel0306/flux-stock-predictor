@@ -1,5 +1,5 @@
 /**
- * Performance metrics calculations for backtesting results
+ * Risk and return statistics for a price history
  * All metrics follow standard financial formulas
  */
 
@@ -35,18 +35,10 @@ export function calculatePerformanceMetrics(prices: number[]): PerformanceMetric
   // Calculate average return
   const avgReturn = returns.reduce((sum, r) => sum + r, 0) / returns.length;
   
-  // Calculate accuracy metrics (simplified - would require prediction history for real accuracy)
-  const accuracy = estimateAccuracy(avgReturn, returns);
-  const precision = estimatePrecision(avgReturn, positiveReturns, returns);
-  const recall = estimateRecall(avgReturn, positiveReturns, returns);
-  
     // Calculate total trades based on trading strategy simulation
     const totalTrades = calculateTotalTrades(prices);
     
     return {
-      accuracy: Math.round(accuracy),
-      precision: Math.round(precision),
-      recall: Math.round(recall),
       sharpeRatio: parseFloat(sharpeRatio.toFixed(2)),
       cagr: parseFloat(cagr.toFixed(1)),
       maxDrawdown: parseFloat((maxDrawdown * 100).toFixed(1)),
@@ -117,44 +109,10 @@ function calculateCAGR(prices: number[]): number {
 }
 
 /**
- * Estimate accuracy based on return consistency
- * Simplified - real accuracy would require prediction vs actual comparison
- */
-function estimateAccuracy(avgReturn: number, returns: number[]): number {
-  // Base accuracy on how consistent returns are
-  const consistency = 1 - (Math.abs(avgReturn) * 2); // More volatile = less accurate
-  return Math.max(50, Math.min(90, 50 + consistency * 40));
-}
-
-/**
- * Estimate precision (true positives / (true positives + false positives))
- * Simplified estimation
- */
-function estimatePrecision(avgReturn: number, positiveReturns: number[], allReturns: number[]): number {
-  if (positiveReturns.length === 0) return 50;
-  // Base precision on positive return ratio and consistency
-  const basePrecision = (positiveReturns.length / allReturns.length) * 100;
-  return Math.max(50, Math.min(90, basePrecision + Math.abs(avgReturn) * 50));
-}
-
-/**
- * Estimate recall (true positives / (true positives + false negatives))
- * Simplified estimation
- */
-function estimateRecall(avgReturn: number, positiveReturns: number[], allReturns: number[]): number {
-  // Similar to precision but focuses on capture rate
-  const baseRecall = (positiveReturns.length / allReturns.length) * 100;
-  return Math.max(50, Math.min(90, baseRecall + Math.abs(avgReturn) * 60));
-}
-
-/**
  * Return default metrics when insufficient data
  */
 function getDefaultMetrics(): PerformanceMetrics {
   return {
-    accuracy: 50,
-    precision: 50,
-    recall: 50,
     sharpeRatio: 0,
     cagr: 0,
     maxDrawdown: 0,

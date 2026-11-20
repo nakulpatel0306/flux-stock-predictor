@@ -1,42 +1,33 @@
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { TrendingUp, Target, Zap, Shield, Award, BarChart3 } from "lucide-react";
+import { TrendingUp, Target, Zap, Shield, FlaskConical } from "lucide-react";
+import { MIN_HOLDOUT_SAMPLES } from "@/models";
+import type { PerformanceMetrics as Metrics, PredictionResult } from "@/types";
 
 interface PerformanceMetricsProps {
-  metrics: {
-    accuracy: number;
-    precision: number;
-    recall: number;
-    sharpeRatio: number;
-    cagr: number;
-    maxDrawdown: number;
-    winRate: number;
-    totalTrades: number;
-    avgReturn: number;
-  };
+  metrics: Metrics;
+  prediction: PredictionResult;
 }
 
-const PerformanceMetrics = ({ metrics }: PerformanceMetricsProps) => {
-  const performanceData = [
-    { name: 'Jan', return: 2.3 },
-    { name: 'Feb', return: -1.1 },
-    { name: 'Mar', return: 4.2 },
-    { name: 'Apr', return: 1.8 },
-    { name: 'May', return: 3.1 },
-    { name: 'Jun', return: -0.5 },
-  ];
-
-  const accuracyData = [
-    { name: 'Correct', value: metrics.accuracy, color: 'hsl(var(--bullish))' },
-    { name: 'Incorrect', value: 100 - metrics.accuracy, color: 'hsl(var(--muted))' }
-  ];
+const PerformanceMetrics = ({ metrics, prediction }: PerformanceMetricsProps) => {
+  const { holdout } = prediction;
+  const measured = holdout !== null && holdout.samples >= MIN_HOLDOUT_SAMPLES ? holdout : null;
 
   const getMetricColor = (value: number, thresholds: { good: number; bad: number }) => {
     if (value >= thresholds.good) return 'text-bullish';
     if (value <= thresholds.bad) return 'text-bearish';
     return 'text-neutral';
   };
+
+  const formatPct = (value: number | null) => (value === null ? 'n/a' : `${value}%`);
+
+  const holdoutStats = measured
+    ? [
+        { label: 'Accuracy', value: formatPct(measured.accuracy), hint: 'Direction calls that were right' },
+        { label: 'Precision', value: formatPct(measured.precision), hint: '"Up" calls that were right' },
+        { label: 'Recall', value: formatPct(measured.recall), hint: 'Up days the models called' },
+        { label: 'Always-up baseline', value: formatPct(measured.baselineAccuracy), hint: 'Accuracy of always guessing "up"' },
+      ]
+    : [];
 
   return (
     <div className="space-y-6">
@@ -48,9 +39,9 @@ const PerformanceMetrics = ({ metrics }: PerformanceMetricsProps) => {
               <Target className="w-5 h-5 text-bullish" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Accuracy</p>
-              <p className={`text-2xl font-bold ${getMetricColor(metrics.accuracy, { good: 70, bad: 50 })}`}>
-                {metrics.accuracy}%
+              <p className="text-sm text-muted-foreground">Holdout Accuracy</p>
+              <p className={`text-2xl font-bold ${measured ? getMetricColor(measured.accuracy - measured.baselineAccuracy, { good: 5, bad: 0 }) : 'text-muted-foreground'}`}>
+                {measured ? `${measured.accuracy}%` : 'n/a'}
               </p>
             </div>
           </div>
@@ -62,7 +53,7 @@ const PerformanceMetrics = ({ metrics }: PerformanceMetricsProps) => {
               <TrendingUp className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Win Rate</p>
+              <p className="text-sm text-muted-foreground">Up Days</p>
               <p className={`text-2xl font-bold ${getMetricColor(metrics.winRate, { good: 60, bad: 40 })}`}>
                 {metrics.winRate}%
               </p>
@@ -85,75 +76,40 @@ const PerformanceMetrics = ({ metrics }: PerformanceMetricsProps) => {
         </Card>
       </div>
 
-      {/* Detailed Metrics Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Backtesting Performance */}
-        <Card className="p-6 bg-gradient-to-br from-card to-secondary/10 border-border/50">
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-primary" />
-              <h3 className="text-lg font-semibold">Backtesting Performance</h3>
-            </div>
-            
-            <div className="h-40">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={performanceData}>
-                  <XAxis 
-                    dataKey="name" 
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
-                  />
-                  <YAxis 
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
-                  />
-                  <Bar 
-                    dataKey="return" 
-                    fill="hsl(var(--primary))"
-                    radius={[2, 2, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+      {/* Holdout Evaluation */}
+      <Card className="p-6 bg-gradient-to-br from-card to-secondary/10 border-border/50">
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <FlaskConical className="w-5 h-5 text-primary" />
+            <h3 className="text-lg font-semibold">Holdout Results</h3>
           </div>
-        </Card>
 
-        {/* Model Accuracy Breakdown */}
-        <Card className="p-6 bg-gradient-to-br from-card to-secondary/10 border-border/50">
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Award className="w-5 h-5 text-primary" />
-              <h3 className="text-lg font-semibold">Model Accuracy</h3>
-            </div>
-            
-            <div className="flex items-center justify-center h-40">
-              <ResponsiveContainer width="80%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={accuracyData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={40}
-                    outerRadius={70}
-                    paddingAngle={2}
-                    dataKey="value"
-                  >
-                    {accuracyData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="absolute text-center">
-                <div className="text-2xl font-bold text-bullish">{metrics.accuracy}%</div>
-                <div className="text-xs text-muted-foreground">Accuracy</div>
+          {measured ? (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {holdoutStats.map((stat) => (
+                  <div key={stat.label} className="text-center p-3 rounded-lg bg-muted/20 border border-border/30">
+                    <div className="text-sm text-muted-foreground">{stat.label}</div>
+                    <div className="text-lg font-bold text-foreground">{stat.value}</div>
+                    <div className="text-xs text-muted-foreground">{stat.hint}</div>
+                  </div>
+                ))}
               </div>
-            </div>
-          </div>
-        </Card>
-      </div>
+              <p className="text-xs text-muted-foreground">
+                The models trained on the {measured.trainSamples} earlier days, then predicted the direction of each of
+                the {measured.samples} most recent days without seeing them. Beating the always-up baseline is the bar
+                that matters; on this little data, a few points either way is noise.
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {holdout
+                ? `Only ${holdout.samples} recent days could be held out for testing, too few for a meaningful accuracy (at least ${MIN_HOLDOUT_SAMPLES} needed). Choose 6M or 1Y to see holdout results.`
+                : 'This timeframe has too little history to train the models, so there is nothing to evaluate. Choose 6M or 1Y to see holdout results.'}
+            </p>
+          )}
+        </div>
+      </Card>
 
       {/* Additional Metrics */}
       <Card className="p-6 bg-gradient-to-br from-card to-secondary/10 border-border/50">
@@ -179,7 +135,7 @@ const PerformanceMetrics = ({ metrics }: PerformanceMetricsProps) => {
             </div>
             
             <div className="text-center p-3 rounded-lg bg-muted/20 border border-border/30">
-              <div className="text-sm text-muted-foreground">Avg Return</div>
+              <div className="text-sm text-muted-foreground">Avg Daily Return</div>
               <div className={`text-lg font-bold ${getMetricColor(metrics.avgReturn, { good: 2, bad: 0 })}`}>
                 {metrics.avgReturn >= 0 ? '+' : ''}{metrics.avgReturn}%
               </div>

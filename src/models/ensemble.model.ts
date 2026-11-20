@@ -1,88 +1,100 @@
 /**
  * Ensemble Model for Stock Prediction
- * Combines multiple models (Neural Network, Time Series, Regression)
- * Uses weighted average for more accurate predictions
+ * Trains the three models on the older samples, scores the blend on the held-out recent ones,
+ * then forecasts the next day with those same models
  */
 
-import type { PredictionResult, TechnicalIndicators } from '@/types';
-import { predictWithNeuralNetwork } from './neural-network.model';
-import { predictWithTimeSeries } from './time-series.model';
-import { predictWithRegression } from './regression.model';
+import type { HoldoutMetrics, PredictionResult } from '@/types';
+import {
+  MIN_HOLDOUT_SAMPLES,
+  buildSamples,
+  expectedReturnFromProbability,
+  scoreDirection,
+  splitHoldout,
+  type DirectionModel,
+  type Sample,
+} from './dataset';
+import { trainNeuralNetwork } from './neural-network.model';
+import { trainTimeSeries } from './time-series.model';
+import { trainRegression } from './regression.model';
 
 /**
- * Ensemble prediction combining multiple models
  * Weights: Neural Network (50%), Time Series (30%), Regression (20%)
  */
+const MODELS: Array<{ train: (samples: Sample[]) => Promise<DirectionModel>; weight: number }> = [
+  { train: trainNeuralNetwork, weight: 0.5 },
+  { train: trainTimeSeries, weight: 0.3 },
+  { train: trainRegression, weight: 0.2 },
+];
+
 export async function predictWithEnsemble(
   prices: number[],
   volumes: number[],
-  currentPrice: number,
-  indicators: TechnicalIndicators
+  currentPrice: number
 ): Promise<PredictionResult> {
-  const results: Array<{ result: PredictionResult; weight: number }> = [];
-  
-  // Run all models in parallel for speed
-  const modelPromises = [
-    // Neural Network: best for complex patterns, highest weight
-    predictWithNeuralNetwork(prices, volumes, currentPrice, indicators)
-      .then(result => ({ result, weight: 0.5 }))
-      .catch(() => null),
-    
-    // Time Series: good for trends, medium weight
-    predictWithTimeSeries(prices, volumes, currentPrice, indicators)
-      .then(result => ({ result, weight: 0.3 }))
-      .catch(() => null),
-    
-    // Regression: simple and interpretable, lower weight
-    predictWithRegression(prices, volumes, currentPrice, indicators)
-      .then(result => ({ result, weight: 0.2 }))
-      .catch(() => null),
-  ];
-  
-  // Wait for all models (or use fallbacks if they fail)
-  const modelResults = await Promise.all(modelPromises);
-  const validResults = modelResults.filter(r => r !== null) as Array<{ result: PredictionResult; weight: number }>;
-  
-  // If no models succeeded, throw error
-  if (validResults.length === 0) {
+  const { labelled, latest } = buildSamples(prices, volumes);
+  const { train, holdout } = splitHoldout(labelled);
+
+  const trained = await Promise.all(
+    MODELS.map(({ train: fit, weight }) =>
+      fit(train)
+        .then(model => ({ model, weight }))
+        .catch(error => {
+          console.warn('Ensemble member failed to train:', error);
+          return null;
+        })
+    )
+  );
+  const members = trained.filter((m): m is { model: DirectionModel; weight: number } => m !== null);
+  if (members.length === 0) {
     throw new Error('All ensemble models failed');
   }
-  
-  // Normalize weights (in case some models failed)
-  const totalWeight = validResults.reduce((sum, r) => sum + r.weight, 0);
-  validResults.forEach(r => r.weight = r.weight / totalWeight);
-  
-  // Weighted average of probabilities
-  const weightedProbability = validResults.reduce((sum, r) => {
-    return sum + (r.result.probability * r.weight);
-  }, 0);
-  
-  // Weighted average of expected returns
-  const weightedExpectedReturn = validResults.reduce((sum, r) => {
-    return sum + (r.result.expectedReturn * r.weight);
-  }, 0);
-  
-  // Average model accuracy
-  const avgAccuracy = validResults.reduce((sum, r) => {
-    return sum + (r.result.modelAccuracy * r.weight);
-  }, 0);
-  
-  // Calculate next day price
-  const nextDayPrice = currentPrice * (1 + weightedExpectedReturn / 100);
-  
-  // Determine direction and confidence
-  const direction: 'up' | 'down' = weightedProbability > 50 ? 'up' : 'down';
-  const confidence: 'high' | 'medium' | 'low' = 
-    weightedProbability > 75 || weightedProbability < 25 ? 'high' :
-    weightedProbability > 65 || weightedProbability < 35 ? 'medium' : 'low';
-  
-  return {
-    direction,
-    probability: Math.round(weightedProbability),
-    expectedReturn: parseFloat(weightedExpectedReturn.toFixed(2)),
-    confidence,
-    modelAccuracy: Math.round(avgAccuracy),
-    nextDayPrice: parseFloat(nextDayPrice.toFixed(2)),
-  };
+
+  try {
+    // Re-normalize weights in case a member failed
+    const totalWeight = members.reduce((sum, m) => sum + m.weight, 0);
+    const targets = [...holdout, latest];
+    const perModel = await Promise.all(members.map(m => m.model.predictUp(targets)));
+    const blended = targets.map((_, k) =>
+      members.reduce((sum, m, j) => sum + perModel[j][k] * (m.weight / totalWeight), 0)
+    );
+
+    const holdoutMetrics: HoldoutMetrics | null =
+      holdout.length > 0 ? scoreDirection(blended.slice(0, holdout.length), holdout, train.length) : null;
+
+    const upProbability = blended[blended.length - 1];
+    const direction: 'up' | 'down' = upProbability > 0.5 ? 'up' : 'down';
+    const expectedReturn = expectedReturnFromProbability(upProbability, prices);
+    const modelsAgree = perModel.every(p => p[p.length - 1] > 0.5 === upProbability > 0.5);
+
+    return {
+      direction,
+      probability: Math.round(Math.max(upProbability, 1 - upProbability) * 100),
+      expectedReturn: parseFloat((expectedReturn * 100).toFixed(2)),
+      confidence: rateConfidence(upProbability, modelsAgree, holdoutMetrics),
+      nextDayPrice: parseFloat((currentPrice * (1 + expectedReturn)).toFixed(2)),
+      method: 'ensemble',
+      holdout: holdoutMetrics,
+    };
+  } finally {
+    members.forEach(m => m.model.dispose());
+  }
 }
 
+/**
+ * High needs a clear lean, every model on the same side, and a holdout record better than always guessing "up".
+ * Without enough held-out days to check that record, confidence stays low.
+ */
+function rateConfidence(
+  upProbability: number,
+  modelsAgree: boolean,
+  holdout: HoldoutMetrics | null
+): 'high' | 'medium' | 'low' {
+  const lean = Math.abs(upProbability - 0.5);
+  const beatBaseline =
+    holdout !== null && holdout.samples >= MIN_HOLDOUT_SAMPLES && holdout.accuracy > holdout.baselineAccuracy;
+  if (!beatBaseline || !modelsAgree) return 'low';
+  if (lean >= 0.15) return 'high';
+  if (lean >= 0.05) return 'medium';
+  return 'low';
+}

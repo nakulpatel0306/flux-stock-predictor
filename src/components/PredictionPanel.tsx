@@ -2,21 +2,23 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { TrendingUp, TrendingDown, Brain, Target } from "lucide-react";
+import { MIN_HOLDOUT_SAMPLES } from "@/models";
+import type { PredictionResult } from "@/types";
 
 interface PredictionPanelProps {
   ticker: string;
-  prediction: {
-    direction: 'up' | 'down';
-    probability: number;
-    expectedReturn: number;
-    confidence: 'high' | 'medium' | 'low';
-    modelAccuracy: number;
-  };
+  prediction: PredictionResult;
 }
 
 const PredictionPanel = ({ ticker, prediction }: PredictionPanelProps) => {
-  const { direction, probability, expectedReturn, confidence, modelAccuracy } = prediction;
+  const { direction, probability, expectedReturn, confidence, method, holdout } = prediction;
   const isPositive = direction === 'up';
+  const holdoutMeasured = holdout !== null && holdout.samples >= MIN_HOLDOUT_SAMPLES;
+  const holdoutNote = holdoutMeasured
+    ? `on ${holdout.samples} held-out days`
+    : holdout
+      ? `only ${holdout.samples} held-out days`
+      : 'no trained models';
 
   const getConfidenceColor = (conf: string) => {
     switch (conf) {
@@ -75,10 +77,11 @@ const PredictionPanel = ({ ticker, prediction }: PredictionPanelProps) => {
 
             <div className="text-center p-4 rounded-lg bg-muted/30 border border-border/50">
               <Brain className="w-5 h-5 text-muted-foreground mx-auto mb-2" />
-              <div className="text-sm text-muted-foreground">Model Accuracy</div>
+              <div className="text-sm text-muted-foreground">Holdout Accuracy</div>
               <div className="text-xl font-bold text-primary">
-                {modelAccuracy}%
+                {holdoutMeasured ? `${holdout.accuracy}%` : 'n/a'}
               </div>
+              <div className="text-xs text-muted-foreground">{holdoutNote}</div>
             </div>
           </div>
 
@@ -91,8 +94,10 @@ const PredictionPanel = ({ ticker, prediction }: PredictionPanelProps) => {
         </div>
 
         <div className="text-xs text-center text-muted-foreground border-t border-border/50 pt-4">
-          Predictions are based on machine learning analysis of historical data and technical indicators.
-          Past performance does not guarantee future results.
+          {method === 'ensemble'
+            ? 'Blend of three models trained on this price history. Expected return is the up probability applied to the stock\'s average up and down day over the last 60 sessions.'
+            : 'Rule-based score from technical indicators: this timeframe has too little history to train the models. Pick 3M or longer for the ML forecast.'}
+          {' '}Not financial advice.
         </div>
       </div>
     </Card>

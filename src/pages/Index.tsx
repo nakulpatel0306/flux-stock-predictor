@@ -25,7 +25,7 @@ const Index = () => {
 
   /**
    * Generate buy/sell signals based on technical analysis
-   * Uses SMA crossover strategy: buy when price crosses above SMA5
+   * Marks every day the price crosses 2% above (buy) or below (sell) its 5-day SMA
    */
   const generateSignals = (priceData: StockDataPoint[]): Array<'buy' | 'sell' | undefined> => {
     const signals: Array<'buy' | 'sell' | undefined> = [];
@@ -39,11 +39,11 @@ const Index = () => {
       const previousPrice = prices[i - 1];
       
       // Buy signal: price crosses above SMA5 with 2% threshold
-      if (currentPrice > sma5 * 1.02 && previousPrice <= sma5 * 1.02 && Math.random() < 0.2) {
+      if (currentPrice > sma5 * 1.02 && previousPrice <= sma5 * 1.02) {
         signals[i] = 'buy';
       } 
       // Sell signal: price crosses below SMA5 with 2% threshold
-      else if (currentPrice < sma5 * 0.98 && previousPrice >= sma5 * 0.98 && Math.random() < 0.2) {
+      else if (currentPrice < sma5 * 0.98 && previousPrice >= sma5 * 0.98) {
         signals[i] = 'sell';
       } else {
         signals[i] = undefined;
@@ -117,7 +117,9 @@ const Index = () => {
 
       toast({
         title: "ML Analysis Complete",
-        description: `Analyzed ${ticker} using ensemble ML models and technical indicators`,
+        description: prediction.method === 'ensemble'
+          ? `Trained 3 models on ${ticker} and scored them on held-out recent days`
+          : `Not enough history to train models for ${ticker}; showing a rule-based indicator score`,
       });
     } catch (error) {
       console.error("Analysis error:", error);
@@ -173,7 +175,10 @@ const Index = () => {
 
                 {/* Performance Metrics */}
                 <div>
-                  <PerformanceMetrics metrics={analysisData.metrics} />
+                  <PerformanceMetrics
+                    metrics={analysisData.metrics}
+                    prediction={analysisData.prediction}
+                  />
                 </div>
               </div>
             )}
@@ -212,7 +217,7 @@ const Index = () => {
                     </div>
                     <h3 className="text-lg font-semibold mb-2">Ensemble ML Models</h3>
                     <p className="text-sm text-muted-foreground">
-                      Multiple neural network, time series, and regression models for accurate predictions
+                      Neural network, time series and ridge regression models trained in your browser and scored on held-out recent days
                     </p>
                   </div>
                   
