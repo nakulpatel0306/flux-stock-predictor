@@ -18,7 +18,7 @@ src/
 │
 ├── models/             # ML Models (TensorFlow.js)
 │   ├── neural-network.model.ts  # Multi-layer perceptron
-│   ├── time-series.model.ts     # ARIMA-like time series
+│   ├── time-series.model.ts     # Dense network on price windows
 │   ├── regression.model.ts      # Linear regression
 │   ├── ensemble.model.ts        # Ensemble of all models
 │   └── index.ts                 # Main model exports
@@ -51,7 +51,7 @@ src/
 - **Accuracy**: Best for complex non-linear patterns
 
 ### 2. Time Series Model (`time-series.model.ts`)
-- **Type**: Sequence-based regression (LSTM-like)
+- **Type**: Dense network on flattened price sequences
 - **Input**: Sliding windows of normalized prices
 - **Output**: Predicted next price
 - **Use Case**: Trend and seasonality patterns

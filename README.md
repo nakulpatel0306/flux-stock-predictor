@@ -1,48 +1,65 @@
-# flux - AI Stock Prediction Platform
+# Flux - Next-Day Stock Forecasts Trained In Your Browser
 
-A browser-based stock predictor. It pulls real price history from Yahoo Finance, trains three models with TensorFlow.js right in the browser, and combines them into one ensemble forecast with charts and backtest metrics.
+A browser-based stock forecasting experiment. Pick a ticker and it pulls daily price history from Yahoo Finance, trains three small TensorFlow.js models on that history right in the browser, and blends them into a next-day up/down call with an expected return, alongside a chart and risk stats for the period.
 
 ## At a Glance
 
 - **Stack:** React 18, TypeScript, Vite, TensorFlow.js, Recharts, Tailwind CSS, shadcn/ui
-- **Data:** Yahoo Finance public API
-- **State:** Complete. For learning only, not financial advice.
+- **Data:** Yahoo Finance chart API (daily closes), no API key
+- **State:** Complete. A learning project, not financial advice
 
 ## Features
 
-- Any ticker (AAPL, TSLA, NVDA and so on) over 1W, 1M, 3M, 6M or 1Y
-- Ensemble of a neural network, a time series model and a ridge regression
-- Technical indicators: SMA (5, 20, 50), EMA, RSI, MACD and volatility
-- Backtest metrics: Sharpe ratio, CAGR, max drawdown, win rate, accuracy, precision, recall
-- Interactive price chart with buy and sell signals
+- **Any ticker** (AAPL, TSLA, NVDA and so on) over 1M, 3M, 6M or 1Y of daily data
+- **Three models trained on demand:** a neural network, a time series network and a ridge regression, each fit fresh on the stock you pick
+- **Ensemble forecast:** a weighted blend giving next-day direction, probability and expected return
+- **Technical indicators** as model features: SMA (5, 20, 50), EMA, RSI, MACD, volatility and momentum
+- **Risk stats** for the period: Sharpe ratio, CAGR, max drawdown and share of up days
+- **Price chart** with buy and sell markers where the price breaks 2% above or below its 5-day average
 
 ## How It Works
 
-1. Fetch price history for the chosen ticker and timeframe
-2. Calculate technical indicators as model features
+1. Fetch daily price history for the chosen ticker and timeframe
+2. Turn each 20-day window into 8 normalized indicator features, labelled with the next day's move
 3. Train all three models in parallel, in the browser
 4. Blend their outputs with weighted averaging
-5. Backtest against actual price moves and chart the results
+5. Chart the history and compute risk stats for the period
 
 | Model | Approach | Ensemble weight |
 |---|---|---|
-| Neural network | Multi-layer perceptron with dropout, on 8 normalized indicators | 50% |
-| Time series | Sequence regression on sliding windows of prices | 30% |
-| Regression | Ridge (L2) regression, an interpretable baseline | 20% |
+| Neural network | Multi-layer perceptron with dropout, classifying next-day up or down from 8 indicators | 50% |
+| Time series | Dense network on sliding 10-day windows of normalized prices, predicting the next close | 30% |
+| Regression | Linear model with L2 (ridge) regularization on the same 8 indicators, predicting next-day return | 20% |
 
-Full design details are in [ARCHITECTURE.md](./ARCHITECTURE.md).
+With fewer than 50 data points (the 1M timeframe), the models are skipped and a rule-based score from the same indicators is used instead. More design detail is in [ARCHITECTURE.md](./ARCHITECTURE.md).
+
+## Limitations
+
+- The "Model Accuracy" figure and the accuracy, precision and recall in the metrics panel are estimates, not measured against past predictions; there is no backtest of the models yet
+- Chart markers are a random sample of 5-day-average crossovers, so they change between runs
+- In the browser, Yahoo Finance is reached through the Vite dev proxy or public CORS proxies, which can be rate limited or down
 
 ## Project Structure
 
 ```
 src/
-├── components/   # UI components (input, charts, prediction panel, metrics)
-├── features/     # Technical indicator calculations
-├── models/       # Neural network, time series, regression and ensemble
-├── services/     # Stock data fetching and model orchestration
-├── utils/        # Performance metrics
-├── types/        # TypeScript types
-└── pages/        # Page components
+├── components/          # Ticker input, price chart, prediction panel, metrics (ui/ is shadcn/ui)
+├── features/
+│   ├── technical-indicators.ts  # SMA, EMA, RSI, MACD, volatility
+│   └── feature-engineering.ts   # The 8 normalized model features
+├── models/
+│   ├── neural-network.model.ts  # Up/down classifier
+│   ├── time-series.model.ts     # Next-close regressor on price windows
+│   ├── regression.model.ts      # Ridge regression on indicators
+│   ├── ensemble.model.ts        # Weighted blend of the three
+│   └── index.ts                 # Entry point with per-model fallbacks
+├── services/
+│   ├── stock-data.service.ts    # Yahoo Finance fetch with proxy fallbacks
+│   └── ml.service.ts            # Runs the models, or the rule-based fallback
+├── utils/               # Risk stats and trade counting
+├── pages/               # Main page and 404
+├── hooks/, lib/, types/ # Shared helpers and TypeScript types
+└── main.tsx
 ```
 
 ## Running Locally
@@ -57,9 +74,9 @@ src/
    ```bash
    npm run dev
    ```
+3. Build for production with `npm run build`.
 
 ## Notes
 
-- Models train on demand, so the first analysis takes a few seconds
-- Use 3M, 6M or 1Y for best results, since the models need 50+ data points
-- Data availability depends on the Yahoo Finance API
+- Models train each time you analyze a ticker, so an analysis takes a few seconds
+- Use 3M, 6M or 1Y: the models need 50+ data points, and 1W is too short to analyze
