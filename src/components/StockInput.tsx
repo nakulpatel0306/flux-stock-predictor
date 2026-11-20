@@ -50,7 +50,6 @@ const StockInput = ({ onAnalyze, loading }: StockInputProps) => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="1W">1W</SelectItem>
                 <SelectItem value="1M">1M</SelectItem>
                 <SelectItem value="3M">3M</SelectItem>
                 <SelectItem value="6M">6M</SelectItem>

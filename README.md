@@ -1,11 +1,11 @@
 # Flux - Next-Day Stock Forecasts Trained In Your Browser
 
-A browser-based stock forecasting experiment. Pick a ticker and it pulls daily price history from Yahoo Finance, trains three small TensorFlow.js models on that history right in the browser, and blends them into a next-day up/down call with an expected return, alongside a chart and risk stats for the period.
+A browser-based stock forecasting experiment. Pick a ticker and it pulls daily price history from Nasdaq (or Yahoo Finance as a fallback), trains three small TensorFlow.js models on that history right in the browser, and blends them into a next-day up/down call with an expected return, alongside a chart and risk stats for the period.
 
 ## At a Glance
 
 - **Stack:** React 18, TypeScript, Vite, TensorFlow.js, Recharts, Tailwind CSS, shadcn/ui
-- **Data:** Yahoo Finance chart API (daily closes), no API key
+- **Data:** Nasdaq historical quotes API, with the Yahoo Finance chart API as a fallback (daily OHLCV), no API key
 - **State:** Complete. A learning project, not financial advice
 
 ## Features
@@ -37,7 +37,9 @@ With fewer than 50 data points (the 1M timeframe), the models are skipped and a 
 
 - The "Model Accuracy" figure and the accuracy, precision and recall in the metrics panel are estimates, not measured against past predictions; there is no backtest of the models yet
 - Chart markers are a random sample of 5-day-average crossovers, so they change between runs
-- In the browser, Yahoo Finance is reached through the Vite dev proxy or public CORS proxies, which can be rate limited or down
+- Neither data source allows direct browser requests (no CORS), so the app needs a proxy. `npm run dev` and `npm run preview` include one and are the reliable way to run it. Nasdaq is tried first because Yahoo Finance often rate limits unauthenticated requests
+- On a static host there is no local proxy, so requests go through public CORS proxies (allorigins, cors.lol, codetabs). These are free, rate limited and often down, so fetching there is best effort; when every source fails, the app says so instead of showing stale or fake data
+- Nasdaq covers US-listed stocks and ETFs; any other ticker depends on Yahoo Finance being reachable
 
 ## Project Structure
 
@@ -54,7 +56,8 @@ src/
 │   ├── ensemble.model.ts        # Weighted blend of the three
 │   └── index.ts                 # Entry point with per-model fallbacks
 ├── services/
-│   ├── stock-data.service.ts    # Yahoo Finance fetch with proxy fallbacks
+│   ├── price-sources.ts         # Nasdaq and Yahoo endpoints and response parsers
+│   ├── stock-data.service.ts    # Source and proxy fallbacks for price history
 │   └── ml.service.ts            # Runs the models, or the rule-based fallback
 ├── utils/               # Risk stats and trade counting
 ├── pages/               # Main page and 404
@@ -79,4 +82,4 @@ src/
 ## Notes
 
 - Models train each time you analyze a ticker, so an analysis takes a few seconds
-- Use 3M, 6M or 1Y: the models need 50+ data points, and 1W is too short to analyze
+- Use 3M, 6M or 1Y to get the trained models: they need 50+ data points

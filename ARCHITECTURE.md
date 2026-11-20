@@ -24,7 +24,8 @@ src/
 │   └── index.ts                 # Main model exports
 │
 ├── services/           # Business logic services
-│   ├── stock-data.service.ts    # Yahoo Finance API client
+│   ├── price-sources.ts         # Nasdaq and Yahoo endpoints and parsers
+│   ├── stock-data.service.ts    # Source and proxy fallbacks
 │   └── ml.service.ts            # ML prediction orchestrator
 │
 ├── types/              # TypeScript type definitions
@@ -77,7 +78,7 @@ User Input (Ticker + Timeframe)
     ↓
 Stock Data Service (fetchStockHistory)
     ↓
-Yahoo Finance API → Historical Prices & Volumes
+Nasdaq API (Yahoo Finance fallback) → Historical Prices & Volumes
     ↓
 Feature Engineering (calculateTechnicalIndicators)
     ↓
@@ -115,5 +116,5 @@ UI Display (Chart + Prediction + Metrics)
 - Models train on-demand for each prediction
 - Ensemble approach provides most accurate results
 - Fallback to simple technical analysis if ML fails
-- CORS handling with multiple proxy strategies
+- Price data: each source (Nasdaq, then Yahoo) is tried through the Vite proxy, then raced across public CORS proxies; a clear error is shown if all fail
 

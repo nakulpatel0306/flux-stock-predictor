@@ -10,7 +10,9 @@ import PriceChart from "@/components/PriceChart";
 import PredictionPanel from "@/components/PredictionPanel";
 import PerformanceMetrics from "@/components/PerformanceMetrics";
 import { toast } from "@/components/ui/use-toast";
-import { fetchStockHistory, fetchStockQuote, timeframeToPeriod } from "@/services/stock-data.service";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
+import { fetchStockHistory, timeframeToPeriod } from "@/services/stock-data.service";
 import { predictStock } from "@/services/ml.service";
 import { calculatePerformanceMetrics } from "@/utils/performance-metrics";
 import type { AnalysisData, StockDataPoint } from "@/types";
@@ -19,6 +21,7 @@ const Index = () => {
   const [selectedStock, setSelectedStock] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   /**
    * Generate buy/sell signals based on technical analysis
@@ -56,21 +59,17 @@ const Index = () => {
   const handleAnalyze = async (ticker: string, timeframe: string) => {
     setLoading(true);
     setSelectedStock(ticker);
+    setError(null);
     
     try {
-      // Convert timeframe to Yahoo Finance period format
       const period = timeframeToPeriod(timeframe);
       
-      // Fetch real stock data from Yahoo Finance
       toast({
         title: "Fetching Stock Data",
         description: `Loading historical data for ${ticker}...`,
       });
 
-      const [historicalData, quote] = await Promise.all([
-        fetchStockHistory(ticker, period),
-        fetchStockQuote(ticker).catch(() => null), // Quote is optional, fail silently
-      ]);
+      const historicalData = await fetchStockHistory(ticker, period);
 
       // Validate we have data
       if (historicalData.length === 0) {
@@ -123,11 +122,7 @@ const Index = () => {
     } catch (error) {
       console.error("Analysis error:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to analyze stock data. Please try again.";
-      toast({
-        title: "Analysis Failed",
-        description: errorMessage,
-        variant: "destructive"
-      });
+      setError(errorMessage);
       setAnalysisData(null);
     } finally {
       setLoading(false);
@@ -148,6 +143,14 @@ const Index = () => {
             <div className="max-w-md mx-auto">
               <StockInput onAnalyze={handleAnalyze} loading={loading} />
             </div>
+
+            {error && !loading && (
+              <Alert variant="destructive" className="max-w-2xl mx-auto">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Analysis failed</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
 
             {/* Analysis Results */}
             {analysisData && selectedStock && (
@@ -176,14 +179,14 @@ const Index = () => {
             )}
 
             {/* Welcome Message for First-time Users */}
-            {!analysisData && !loading && (
+            {!analysisData && !loading && !error && (
               <div className="text-center py-16 space-y-6">
                 <div className="space-y-4">
                   <h2 className="text-4xl font-bold tracking-tight">
                     AI-Powered Stock Analysis
                   </h2>
                   <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                    Get machine learning predictions using TensorFlow.js, real-time stock data from Yahoo Finance,
+                    Get machine learning predictions using TensorFlow.js, daily stock data from Nasdaq and Yahoo Finance,
                     and comprehensive technical analysis with advanced risk metrics.
                   </p>
                 </div>
@@ -195,9 +198,9 @@ const Index = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                       </svg>
                     </div>
-                    <h3 className="text-lg font-semibold mb-2">Real-Time Data</h3>
+                    <h3 className="text-lg font-semibold mb-2">Live Market Data</h3>
                     <p className="text-sm text-muted-foreground">
-                      Live stock prices and historical data from Yahoo Finance API (2025 data)
+                      Daily price history from Nasdaq, with Yahoo Finance as a fallback. No API key needed
                     </p>
                   </div>
                   

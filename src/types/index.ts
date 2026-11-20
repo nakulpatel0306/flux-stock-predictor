@@ -13,14 +13,6 @@ export interface StockDataPoint {
   close?: number;
 }
 
-// Current stock quote
-export interface StockQuote {
-  symbol: string;
-  price: number;
-  change: number;
-  changePercent: number;
-}
-
 // Technical indicators calculated from price data
 export interface TechnicalIndicators {
   prices: number[];
@@ -73,6 +65,6 @@ export interface AnalysisData {
   metrics: PerformanceMetrics;
 }
 
-// Yahoo Finance API period types
-export type YahooFinancePeriod = '1d' | '5d' | '1mo' | '3mo' | '6mo' | '1y' | '2y' | '5y' | '10y' | 'ytd' | 'max';
+// Daily price history lookback
+export type HistoryPeriod = '1mo' | '3mo' | '6mo' | '1y';
 
