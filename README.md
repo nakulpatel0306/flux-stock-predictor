@@ -83,3 +83,7 @@ src/
 
 - Models train each time you analyze a ticker, so an analysis takes a few seconds
 - Use 3M, 6M or 1Y to get the trained models: they need 50+ data points
+
+## License
+
+MIT, see [LICENSE](LICENSE).
